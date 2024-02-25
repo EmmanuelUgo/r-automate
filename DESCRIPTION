@@ -9,5 +9,6 @@ Imports:
     tidyr,
     stringr,
     purrr,
-    janitor
+    janitor,
+    emayili
     
