@@ -1,0 +1,43 @@
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    # https://stackoverflow.com/a/16717986
+    #
+    # 1. Entry: Minute when the process will be started [0-60]
+    # 2. Entry: Hour when the process will be started [0-23]
+    # 3. Entry: Day of the month when the process will be started [1-28/29/30/31]
+    # 4. Entry: Month of the year when the process will be started [1-12]
+    # 5. Entry: Weekday when the process will be started [0-6] [0 is Sunday]
+    # So according to this '0 9 * * 1' will run 9:00 every monday.
+    - cron:  '0 9 * * 1'
+  # push:
+  #   branches: [main, master]
+  # pull_request:
+  #   branches: [main, master]
+
+  workflow_dispatch:
+
+name: update-edtech-metrics
+
+jobs:
+  update-edtech-metrics:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      GOOGLEDRIVE_KEY: ${{ secrets.GOOGLEDRIVE_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          needs: check
+
+      - name: Update metrics
+        run: |
+          source("R/update_script.R", echo = TRUE)
+        shell: Rscript {0}

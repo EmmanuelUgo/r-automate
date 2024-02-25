@@ -1,3 +1,13 @@
 Package: Automation in R
 Version: 0.0.0.9000
 Description: Automate R scripts
+Imports: 
+    googlesheets4,
+    googledrive,
+    gargle,
+    dplyr,
+    tidyr,
+    stringr,
+    purrr,
+    janitor
+    
