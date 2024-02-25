@@ -4,6 +4,7 @@ library(tidyr)
 library(stringr)
 library(purrr)
 library(janitor)
+library(emayili)
 
 googledrive::drive_auth(
   path = gargle::secret_decrypt_json(
@@ -75,5 +76,24 @@ kpi_tbl <-
          starts_with("kpi_ind_"))
 
 
-
 sheet_append(ss = sheet_id, data = kpi_tbl, sheet = "metrics")
+
+## Update user
+
+smtp <- emayili::server(
+  host = "smtp.gmail.com",
+  port = 465,
+  username = Sys.getenv("GMAIL_USERNAME"),
+  password = Sys.getenv("GMAIL_PASSWORD")
+)
+
+email_content <- paste0("[This](", sheet_id, ") is the link.")
+send_to <- c("hemma.ugo@gmail.com")
+
+emayili <- envelope() %>%
+  from("favour879@gmail.com") %>%
+  to(send_to) %>%
+  subject("Metric is updated!") %>%
+  emayili::render(email_content)
+
+smtp(emayili, verbose = TRUE)

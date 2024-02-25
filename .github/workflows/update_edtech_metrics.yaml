@@ -23,8 +23,9 @@ jobs:
   update-edtech-metrics:
     runs-on: ubuntu-latest
     env:
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       GOOGLEDRIVE_KEY: ${{ secrets.GOOGLEDRIVE_KEY }}
+      GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+      GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
     steps:
       - uses: actions/checkout@v3
 
