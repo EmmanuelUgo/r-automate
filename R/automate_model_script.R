@@ -140,7 +140,10 @@ if(nrow(new_patients) > 0) {
 
   ## Format the text col (i.e 0.564 -> 56%)
   format_prediction_to_percent(sheet_id)
+}
 
+
+if(nrow(new_patients) > 0){
   ## Prepare email message
   smtp <- emayili::server(
     host = "smtp.gmail.com",
@@ -167,7 +170,4 @@ if(nrow(new_patients) > 0) {
 
   smtp(emayili, verbose = TRUE)
 }
-
-
-
 
