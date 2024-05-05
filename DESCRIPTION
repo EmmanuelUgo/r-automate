@@ -14,5 +14,6 @@ Imports:
     workflows, 
     parsnip,
     readr,
-    recipes
+    recipes,
+    glmnet
     
