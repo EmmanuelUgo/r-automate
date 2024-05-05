@@ -13,5 +13,6 @@ Imports:
     emayili,
     workflows, 
     parsnip,
-    readr
+    readr,
+    recipes
     
