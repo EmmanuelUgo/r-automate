@@ -10,5 +10,7 @@ Imports:
     stringr,
     purrr,
     janitor,
-    emayili
+    emayili,
+    workflows, 
+    parsnip
     
