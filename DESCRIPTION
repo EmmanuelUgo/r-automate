@@ -12,5 +12,6 @@ Imports:
     janitor,
     emayili,
     workflows, 
-    parsnip
+    parsnip,
+    readr
     
