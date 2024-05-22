@@ -16,6 +16,7 @@ library(dplyr)
 library(parsnip)
 library(workflows)
 library(emayili)
+library(tidyr)
 
 ## googlesheet De-auth setup
 googledrive::drive_auth(
@@ -83,6 +84,11 @@ sheet_id <- "https://docs.google.com/spreadsheets/d/1vDQD7KyvDzJkuz-ZQBZ1EF4KMPN
 ## The first sheet is where the raw data is
 patient_data <- read_sheet(sheet_id, sheet = 1)
 
+email_patient_df <- patient_data |>
+  select("patient_id", "email")
+
+patient_data <- patient_data |> select(-"email")
+
 ## The second sheet is the process result
 patient_data_with_pred <- read_sheet(sheet_id, sheet = 2)
 
@@ -113,6 +119,47 @@ patient_data_with_pred <- read_sheet(sheet_id, sheet = 2)
 
 new_patients <- patient_data |> anti_join(patient_data_with_pred |> select("patient_id"))
 
+### to find changes in the raw data
+
+patient_with_pred <-
+  patient_data |>
+  inner_join(patient_data_with_pred |> select("patient_id")) |>
+  pull(patient_id)
+
+patient_raw_long <-
+  patient_data |>
+  filter(patient_id %in% patient_with_pred) |>
+  mutate(across(-"patient_id", as.character)) |>
+  pivot_longer(cols = -"patient_id", values_to = "value_raw")
+
+patient__with_pred_long <-
+  patient_data_with_pred |>
+  filter(patient_id %in% patient_with_pred) |>
+  mutate(across(-"patient_id", as.character)) |>
+  pivot_longer(cols = -"patient_id", values_to = "value_pred")
+
+id_with_change <-
+  patient_raw_long |>
+  left_join(patient__with_pred_long) |>
+  filter(value_raw != value_pred) |>
+  distinct(patient_id) |>
+  pull()
+
+if(length(id_with_change) > 0) {
+  ## When there's a change in previously predicted data,
+  ## Add it to new prediction data and remove old record.
+
+  new_patients <-
+    patient_data |>
+    filter(patient_id %in% id_with_change) |>
+    bind_rows(new_patients)
+
+  patient_data_with_pred <-
+    patient_data_with_pred |>
+    filter(!patient_id %in% id_with_change)
+}
+
+
 ## Since the automation task would run every 30 minutes, we put a conditional statement
 ## Process the data and send an email if we have new data.
 
@@ -134,40 +181,61 @@ if(nrow(new_patients) > 0) {
     stop("Prediction data and prediction database don't match")
   }
 
-  sheet_append(ss = sheet_id,
-               data = pred_data,
-               sheet = "Patient Data with Prediction")
+
+  if(length(id_with_change) > 0) {
+    data_to_send <-
+      patient_data_with_pred |>
+      bind_rows(pred_data) |>
+      arrange(patient_id)
+
+    sheet_write(ss = sheet_id,
+                data = data_to_send,
+                sheet = "Patient Data with Prediction")
+  } else {
+    sheet_append(ss = sheet_id,
+                 data = pred_data,
+                 sheet = "Patient Data with Prediction")
+  }
+
 
   ## Format the text col (i.e 0.564 -> 56%)
   format_prediction_to_percent(sheet_id)
 }
 
 
-if(nrow(new_patients) > 0){
-  ## Prepare email message
-  smtp <- emayili::server(
-    host = "smtp.gmail.com",
-    port = 465,
-    username = Sys.getenv("GMAIL_USERNAME"),
-    password = Sys.getenv("GMAIL_PASSWORD")
-  )
+if(nrow(new_patients) > 0) {
 
-  send_to <- c("hemma.ugo@gmail.com")
+  pred_data <- left_join(pred_data, email_patient_df)
 
-  emayili <- envelope() %>%
-    from("favour879@gmail.com") %>%
-    to(send_to) %>%
-    subject("New Readmission Prediction") %>%
-    emayili::render(
-      input = "R/email_content_for_patient.Rmd",
-      params =  list(
-        patient_id = pred_data$patient_id,
-        prob = pred_data$`Prob Readmit`
-      ),
-      squish = F,
-      include_css = "bootstrap"
+  for (i in unique(pred_data$email)) {
+
+    email_data <- pred_data |>
+      filter(.data$email == i)
+
+    ## Prepare email message
+    smtp <- emayili::server(
+      host = "smtp.gmail.com",
+      port = 465,
+      username = Sys.getenv("GMAIL_USERNAME"),
+      password = Sys.getenv("GMAIL_PASSWORD")
     )
 
-  smtp(emayili, verbose = TRUE)
+    emayili <- envelope() %>%
+      from("favour879@gmail.com") %>%
+      to(i) %>%
+      subject("New Readmission Prediction") %>%
+      emayili::render(
+        input = "R/email_content_for_patient.Rmd",
+        params =  list(
+          patient_id = email_data$patient_id,
+          prob = email_data$`Prob Readmit`
+        ),
+        squish = F,
+        include_css = "bootstrap"
+      )
+
+    smtp(emayili, verbose = TRUE)
+  }
+
 }
 
